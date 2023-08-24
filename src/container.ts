@@ -15,14 +15,17 @@ import { Commands, extensionPrefix } from './constants';
 import { EventBus } from './eventBus';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
-import { GitHubAuthenticationProvider } from './git/remotes/github';
-import { GitLabAuthenticationProvider } from './git/remotes/gitlab';
 import { RichRemoteProviderService } from './git/remotes/remoteProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPathMappingProvider';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
 import { ServerConnection } from './plus/gk/serverConnection';
-import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
+import { AzureDevOpsAuthenticationProvider } from './plus/integration/azureDevOps';
+import { BitbucketAuthenticationProvider } from './plus/integration/bitbucket';
+import { GitHubAuthenticationProvider } from './plus/integration/github';
+import { GitLabAuthenticationProvider } from './plus/integration/gitlab';
+import { IntegrationAuthenticationService } from './plus/integration/integrationAuthentication';
+import { ProvidersService } from './plus/providers/providersService';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewPanel } from './plus/webviews/focus/registration';
@@ -190,6 +193,7 @@ export class Container {
 		];
 
 		this._richRemoteProviders = new RichRemoteProviderService(this);
+		this._providers = new ProvidersService(this);
 
 		const connection = new ServerConnection(this);
 		this._disposables.push(connection);
@@ -498,6 +502,8 @@ export class Container {
 				// Register any integration authentication providers
 				new GitHubAuthenticationProvider(this),
 				new GitLabAuthenticationProvider(this),
+				new AzureDevOpsAuthenticationProvider(this),
+				new BitbucketAuthenticationProvider(this),
 			);
 		}
 
@@ -542,6 +548,11 @@ export class Container {
 	@memoize()
 	get prereleaseOrDebugging() {
 		return this._prerelease || this.debugging;
+	}
+
+	private readonly _providers: ProvidersService;
+	get providers() {
+		return this._providers;
 	}
 
 	private readonly _rebaseEditor: RebaseEditorProvider;
