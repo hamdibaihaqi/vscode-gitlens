@@ -9,7 +9,7 @@ import { Uri, window } from 'vscode';
 import type { CoreConfiguration } from '../../../constants';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
-import type { PatchSelectedEvent } from '../../../eventBus';
+import type { DraftSelectedEvent } from '../../../eventBus';
 import { executeGitCommand } from '../../../git/actions';
 import {
 	openChanges,
@@ -23,7 +23,7 @@ import type { GitCommit } from '../../../git/models/commit';
 import type { GitFileChange } from '../../../git/models/file';
 import { getGitFileStatusIcon } from '../../../git/models/file';
 import type { IssueOrPullRequest } from '../../../git/models/issue';
-import type { GitCloudPatch, GitPatch, LocalPatch } from '../../../git/models/patch';
+import type { GitCloudPatch, GitPatch } from '../../../git/models/patch';
 import { createReference } from '../../../git/models/reference';
 import type { GitRemote } from '../../../git/models/remote';
 import { showCommitPicker } from '../../../quickpicks/commitPicker';
@@ -42,12 +42,12 @@ import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import { updatePendingContext } from '../../../webviews/webviewController';
-import type { CloudPatch } from '../../patches/cloudPatchService';
+import type { Draft, LocalDraft } from '../../drafts/draftsService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	DidExplainParams,
+	DraftDetails,
 	FileActionParams,
-	PatchDetails,
 	Preferences,
 	State,
 	UpdateablePreferences,
@@ -69,7 +69,7 @@ import {
 } from './protocol';
 
 interface Context {
-	patch: LocalPatch | CloudPatch | undefined;
+	draft: LocalDraft | Draft | undefined;
 	preferences: Preferences;
 
 	visible: boolean;
@@ -89,7 +89,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 		private readonly host: WebviewController<State, Serialized<State>>,
 	) {
 		this._context = {
-			patch: undefined,
+			draft: undefined,
 			preferences: {
 				avatars: configuration.get('views.patchDetails.avatars'),
 				dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
@@ -116,9 +116,9 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 	onShowing(
 		_loading: boolean,
 		options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: [Partial<PatchSelectedEvent['data']> | { state: Partial<Serialized<State>> }] | unknown[]
+		...args: [Partial<DraftSelectedEvent['data']> | { state: Partial<Serialized<State>> }] | unknown[]
 	): boolean {
-		let data: Partial<PatchSelectedEvent['data']> | undefined;
+		let data: Partial<DraftSelectedEvent['data']> | undefined;
 
 		const [arg] = args;
 		// if (isSerializedState<Serialized<State>>(arg)) {
@@ -147,16 +147,16 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 			data = undefined;
 		}
 
-		let patch;
+		let draft;
 		if (data != null) {
 			if (data.preserveFocus) {
 				options.preserveFocus = true;
 			}
-			({ patch, ...data } = data);
+			({ draft, ...data } = data);
 		}
 
-		if (patch != null) {
-			this.updatePatch(patch);
+		if (draft != null) {
+			this.updateDraft(draft);
 		}
 
 		if (data?.preserveVisibility && !this.host.visible) return false;
@@ -177,7 +177,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true))];
 	}
 
-	private onPatchSelected(e: PatchSelectedEvent) {
+	private onDraftSelected(e: DraftSelectedEvent) {
 		if (e.data == null) return;
 
 		// if (this._pinned && e.data.interaction === 'passive') {
@@ -242,7 +242,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 
 		if (!this.host.visible) return;
 
-		this._selectionTrackerDisposable = this.container.events.on('patch:selected', this.onPatchSelected, this);
+		this._selectionTrackerDisposable = this.container.events.on('draft:selected', this.onDraftSelected, this);
 	}
 
 	onMessageReceived(e: IpcMessage) {
@@ -292,7 +292,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 	}
 
 	private async explainPatch(completionId?: string) {
-		if (this._context.patch == null) return;
+		if (this._context.draft == null) return;
 
 		let params: DidExplainParams;
 
@@ -323,8 +323,8 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 		}
 
 		let details;
-		if (current.patch != null) {
-			details = await this.getDetailsModel(current.patch);
+		if (current.draft != null) {
+			details = await this.getDetailsModel(current.draft);
 
 			// if (!current.richStateLoaded) {
 			// 	this._cancellationTokenSource = new CancellationTokenSource();
@@ -342,7 +342,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 		const state = serialize<State>({
 			webviewId: this.host.id,
 			timestamp: Date.now(),
-			patch: details,
+			draft: details,
 			preferences: current.preferences,
 		});
 		return state;
@@ -413,10 +413,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 
 	private _commitDisposable: Disposable | undefined;
 
-	private updatePatch(
-		patch: LocalPatch | CloudPatch | undefined,
-		options?: { force?: boolean; immediate?: boolean },
-	) {
+	private updateDraft(draft: LocalDraft | Draft | undefined, options?: { force?: boolean; immediate?: boolean }) {
 		// // this.commits = [commit];
 		// if (!options?.force && this._context.commit?.sha === patch?.ref) return;
 		// this._commitDisposable?.dispose();
@@ -445,7 +442,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 
 		this.updatePendingContext(
 			{
-				patch: patch,
+				draft: draft,
 				// richStateLoaded: false, //(commit?.isUncommitted) || !getContext('gitlens:hasConnectedRemotes'),
 				// formattedMessage: undefined,
 				// autolinkedIssues: undefined,
@@ -563,12 +560,12 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 	// }
 
 	// eslint-disable-next-line @typescript-eslint/require-await
-	private async getDetailsModel(patchset: LocalPatch | CloudPatch): Promise<PatchDetails> {
+	private async getDetailsModel(draft: LocalDraft | Draft): Promise<DraftDetails> {
 		let patch: GitPatch | GitCloudPatch;
-		if (patchset.type === 'local') {
-			patch = patchset.patch;
+		if (draft.type === 'local') {
+			patch = draft.patch;
 		} else {
-			patch = patchset.changesets[0].patches[0];
+			patch = draft.changesets[0].patches[0];
 		}
 
 		if (patch.files == null) {
@@ -576,7 +573,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 				const files = await this.container.git.getDiffFiles('', patch.contents);
 				patch.files = files?.files;
 
-				this.updatePendingContext({ patch: patchset }, true);
+				this.updatePendingContext({ draft: draft }, true);
 				this.updateState();
 			}, 1);
 		}
@@ -599,7 +596,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 			};
 		});
 
-		if (patchset.type === 'local' || patch.type === 'file') {
+		if (draft.type === 'local' || patch.type === 'file') {
 			return {
 				type: 'local',
 				files: files,
@@ -619,8 +616,8 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 				avatar: undefined,
 			},
 			files: files,
-			createdAt: patchset.createdAt.getTime(),
-			updatedAt: patchset.updatedAt.getTime(),
+			createdAt: draft.createdAt.getTime(),
+			updatedAt: draft.updatedAt.getTime(),
 		};
 	}
 
@@ -654,12 +651,12 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 
 	private async getUnreachablePatchCommit(): Promise<GitCommit | undefined> {
 		let patch: GitPatch | GitCloudPatch;
-		switch (this._context.patch?.type) {
+		switch (this._context.draft?.type) {
 			case 'local':
-				patch = this._context.patch.patch;
+				patch = this._context.draft.patch;
 				break;
 			case 'cloud':
-				patch = this._context.patch.changesets[0]?.patches[0];
+				patch = this._context.draft.changesets[0]?.patches[0];
 				break;
 			default:
 				throw new Error('Invalid patch type');
@@ -732,12 +729,12 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 
 	private async selectPatchBase() {
 		let patch: GitPatch | GitCloudPatch;
-		switch (this._context.patch?.type) {
+		switch (this._context.draft?.type) {
 			case 'local':
-				patch = this._context.patch.patch;
+				patch = this._context.draft.patch;
 				break;
 			case 'cloud':
-				patch = this._context.patch.changesets[0]?.patches[0];
+				patch = this._context.draft.changesets[0]?.patches[0];
 				break;
 			default:
 				throw new Error('Invalid patch type');
@@ -746,17 +743,17 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 		const baseRef = await this.getPatchBaseRef(patch, true);
 		if (baseRef == null) return;
 
-		this.updatePatch(this._context.patch, { force: true });
+		this.updateDraft(this._context.draft, { force: true });
 	}
 
 	private async selectPatchRepo() {
 		let patch: GitPatch | GitCloudPatch;
-		switch (this._context.patch?.type) {
+		switch (this._context.draft?.type) {
 			case 'local':
-				patch = this._context.patch.patch;
+				patch = this._context.draft.patch;
 				break;
 			case 'cloud':
-				patch = this._context.patch.changesets[0]?.patches[0];
+				patch = this._context.draft.changesets[0]?.patches[0];
 				break;
 			default:
 				throw new Error('Invalid patch type');
@@ -765,7 +762,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 		const repo = await this.getPatchRepo(patch, true);
 		if (repo == null) return;
 
-		this.updatePatch(this._context.patch, { force: true });
+		this.updateDraft(this._context.draft, { force: true });
 	}
 
 	private async getPatchRepo(patch: GitPatch | GitCloudPatch, force = false) {

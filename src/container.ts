@@ -20,10 +20,10 @@ import { GitLabAuthenticationProvider } from './git/remotes/gitlab';
 import { RichRemoteProviderService } from './git/remotes/remoteProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPathMappingProvider';
+import { DraftService } from './plus/drafts/draftsService';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
 import { ServerConnection } from './plus/gk/serverConnection';
 import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
-import { CloudPatchService } from './plus/patches/cloudPatchService';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewPanel } from './plus/webviews/focus/registration';
@@ -241,8 +241,8 @@ export class Container {
 
 		this._disposables.push((this._repositoriesView = new RepositoriesView(this)));
 		this._disposables.push((this._commitDetailsView = registerCommitDetailsWebviewView(this._webviews)));
-		this._disposables.push((this._patchDetailsView = registerPatchDetailsWebviewView(this._webviews)));
 		this._disposables.push((this._graphDetailsView = registerGraphDetailsWebviewView(this._webviews)));
+		this._disposables.push((this._patchDetailsView = registerPatchDetailsWebviewView(this._webviews)));
 		this._disposables.push((this._commitsView = new CommitsView(this)));
 		this._disposables.push((this._fileHistoryView = new FileHistoryView(this)));
 		this._disposables.push((this._lineHistoryView = new LineHistoryView(this)));
@@ -360,17 +360,12 @@ export class Container {
 		return this._branchesView;
 	}
 
-	private _cloudPatches: CloudPatchService | undefined;
-	get cloudPatches() {
-		if (this._cloudPatches == null) {
-			this._disposables.push((this._cloudPatches = new CloudPatchService(this, this._connection)));
+	private _drafts: DraftService | undefined;
+	get drafts() {
+		if (this._drafts == null) {
+			this._disposables.push((this._drafts = new DraftService(this, this._connection)));
 		}
-		return this._cloudPatches;
-	}
-
-	private readonly _patchDetailsView: WebviewViewProxy;
-	get patchDetailsView() {
-		return this._patchDetailsView;
+		return this._drafts;
 	}
 
 	private readonly _codeLensController: GitCodeLensController;
@@ -555,6 +550,11 @@ export class Container {
 			this._disposables.push((this._repositoryPathMapping = getSupportedRepositoryPathMappingProvider(this)));
 		}
 		return this._repositoryPathMapping;
+	}
+
+	private readonly _patchDetailsView: WebviewViewProxy;
+	get patchDetailsView() {
+		return this._patchDetailsView;
 	}
 
 	private readonly _prerelease;
