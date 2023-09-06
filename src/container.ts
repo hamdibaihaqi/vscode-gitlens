@@ -54,6 +54,7 @@ import { UriService } from './uris/uriService';
 import { BranchesView } from './views/branchesView';
 import { CommitsView } from './views/commitsView';
 import { ContributorsView } from './views/contributorsView';
+import { DraftsView } from './views/draftsView';
 import { FileHistoryView } from './views/fileHistoryView';
 import { LineHistoryView } from './views/lineHistoryView';
 import { RemotesView } from './views/remotesView';
@@ -253,6 +254,7 @@ export class Container {
 		this._disposables.push((this._worktreesView = new WorktreesView(this)));
 		this._disposables.push((this._contributorsView = new ContributorsView(this)));
 		this._disposables.push((this._searchAndCompareView = new SearchAndCompareView(this)));
+		this._disposables.push((this._draftsView = new DraftsView(this)));
 		this._disposables.push((this._workspacesView = new WorkspacesView(this)));
 
 		this._disposables.push((this._homeView = registerHomeWebviewView(this._webviews)));
@@ -366,6 +368,11 @@ export class Container {
 			this._disposables.push((this._drafts = new DraftService(this, this._connection)));
 		}
 		return this._drafts;
+	}
+
+	private readonly _draftsView: DraftsView;
+	get draftsView() {
+		return this._draftsView;
 	}
 
 	private readonly _codeLensController: GitCodeLensController;

@@ -651,6 +651,7 @@ interface ViewsConfigs {
 	commits: CommitsViewConfig;
 	commitDetails: CommitDetailsViewConfig;
 	contributors: ContributorsViewConfig;
+	drafts: object;
 	fileHistory: FileHistoryViewConfig;
 	lineHistory: LineHistoryViewConfig;
 	patchDetails: PatchDetailsViewConfig;
@@ -668,6 +669,7 @@ export const viewsConfigKeys: ViewsConfigKeys[] = [
 	'commits',
 	'commitDetails',
 	'contributors',
+	'drafts',
 	'fileHistory',
 	'lineHistory',
 	'patchDetails',

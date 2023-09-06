@@ -346,6 +346,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setShowAllBranches${'On' | 'Off'}`
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowStatistics${'On' | 'Off'}`}`
+	| `drafts.${'copy' | 'refresh' | 'create' | 'delete' | 'open'}`
 	| `fileHistory.${
 			| 'copy'
 			| 'refresh'
@@ -450,6 +451,7 @@ export type TreeViewTypes =
 	| 'branches'
 	| 'commits'
 	| 'contributors'
+	| 'drafts'
 	| 'fileHistory'
 	| 'lineHistory'
 	| 'remotes'
